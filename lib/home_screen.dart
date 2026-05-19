@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'drink_record.dart';
 import 'drink_repository.dart';
 import 'stats.dart';
+import 'theme.dart';
 import 'widgets/chart_view.dart';
 import 'widgets/drink_form.dart';
 import 'widgets/month_calendar.dart';
@@ -25,13 +26,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
+        backgroundColor: AppColors.bg,
         appBar: AppBar(
-          title: const Text('休肝日・飲酒記録'),
+          title: const Text('SOBR.'),
           bottom: const TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.calendar_month), text: 'カレンダー'),
-              Tab(icon: Icon(Icons.list), text: '一覧'),
-              Tab(icon: Icon(Icons.bar_chart), text: 'グラフ'),
+              Tab(text: '記録'),
+              Tab(text: '一覧'),
+              Tab(text: 'グラフ'),
             ],
           ),
         ),
@@ -93,25 +95,83 @@ Future<void> _showDaySheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
+    backgroundColor: AppColors.bg,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (ctx) {
       return Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-          left: 16,
-          right: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          left: 22,
+          right: 22,
           top: 8,
         ),
         child: SingleChildScrollView(
           child: DrinkForm(
             initial: existing,
             defaultDate: defaultDate,
-            showDateLabel: false,
             onSubmitted: () => Navigator.of(ctx).pop(),
           ),
         ),
       );
     },
   );
+}
+
+class _PageHeader extends StatelessWidget {
+  final String overline;
+  final String title;
+  final String? subtitle;
+
+  const _PageHeader({
+    required this.overline,
+    required this.title,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            overline,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.inkSoft,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: AppColors.ink,
+              letterSpacing: -0.5,
+              height: 1.2,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              subtitle!,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.inkSoft,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _CalendarTab extends StatefulWidget {
@@ -160,37 +220,51 @@ class _CalendarTabState extends State<_CalendarTab> {
     final byDate = _byDateLatest(widget.records);
 
     return ListView(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.only(bottom: 32),
       children: [
-        StatsCard(
-          restDayStreak: widget.streak,
-          last7DaysMl: widget.last7DaysMl,
-          monthlyRestDays: widget.monthlyRest,
+        const _PageHeader(
+          overline: '記録',
+          title: '日付を選んで記録',
+          subtitle: 'カレンダーから日付をタップして、\nその日の状況を記録できます。',
         ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: MonthCalendar(
-              month: _displayedMonth,
-              recordsByDate: byDate,
-              onPrev: _prev,
-              onNext: _next,
-              onTapDay: (date, existing) => _showDaySheet(
-                context,
-                existing: existing,
-                defaultDate: existing == null ? date : null,
-              ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          child: HeroStatsCard(
+            restDayStreak: widget.streak,
+            last7DaysMl: widget.last7DaysMl,
+            monthlyRestDays: widget.monthlyRest,
+          ),
+        ),
+        const SizedBox(height: 22),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: MonthCalendar(
+            month: _displayedMonth,
+            recordsByDate: byDate,
+            onPrev: _prev,
+            onNext: _next,
+            onTapDay: (date, existing) => _showDaySheet(
+              context,
+              existing: existing,
+              defaultDate: existing == null ? date : null,
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 18),
         const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4),
+          padding: EdgeInsets.fromLTRB(22, 0, 22, 10),
           child: Text(
-            '日付をタップすると、その日の記録を追加・編集できます',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            'カレンダーの色について',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.ink,
+            ),
           ),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 22),
+          child: CalendarLegend(),
         ),
       ],
     );
@@ -215,43 +289,63 @@ class _ListTab extends StatelessWidget {
     final sorted = [...records]..sort((a, b) => b.date.compareTo(a.date));
 
     return ListView(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.only(bottom: 32),
       children: [
-        StatsCard(
-          restDayStreak: streak,
-          last7DaysMl: last7DaysMl,
-          monthlyRestDays: monthlyRest,
+        const _PageHeader(
+          overline: '一覧',
+          title: 'すべての記録',
         ),
-        const SizedBox(height: 12),
-        const Align(
-          alignment: Alignment.centerLeft,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4),
-            child: Text('すべての記録',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          child: HeroStatsCard(
+            restDayStreak: streak,
+            last7DaysMl: last7DaysMl,
+            monthlyRestDays: monthlyRest,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 22),
         if (sorted.isEmpty)
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: Text('まだ記録がありません')),
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(
+              child: Text(
+                'まだ記録がありません',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AppColors.inkSoft,
+                ),
+              ),
+            ),
           )
         else
-          Card(
-            child: Column(
-              children: [
-                for (int i = 0; i < sorted.length; i++) ...[
-                  if (i > 0) const Divider(height: 1),
-                  RecordTile(
-                    record: sorted[i],
-                    onEdit: () => _showDaySheet(
-                      context,
-                      existing: sorted[i],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.border, width: 0.5),
+              ),
+              child: Column(
+                children: [
+                  for (int i = 0; i < sorted.length; i++) ...[
+                    if (i > 0)
+                      const Divider(
+                          height: 1,
+                          thickness: 0.5,
+                          color: AppColors.border,
+                          indent: 16,
+                          endIndent: 16),
+                    RecordTile(
+                      record: sorted[i],
+                      onEdit: () => _showDaySheet(
+                        context,
+                        existing: sorted[i],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
       ],
@@ -277,39 +371,55 @@ class _ChartTab extends StatelessWidget {
     final aggregates = dailyAggregates(records, 14);
 
     return ListView(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.only(bottom: 32),
       children: [
-        StatsCard(
-          restDayStreak: streak,
-          last7DaysMl: last7DaysMl,
-          monthlyRestDays: monthlyRest,
+        const _PageHeader(
+          overline: 'グラフ',
+          title: '直近 14 日',
         ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          child: HeroStatsCard(
+            restDayStreak: streak,
+            last7DaysMl: last7DaysMl,
+            monthlyRestDays: monthlyRest,
+          ),
+        ),
+        const SizedBox(height: 22),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border, width: 0.5),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('直近 14 日の飲酒量 (ml)',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  '日次の飲酒量 (ml)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 SizedBox(
                   height: 240,
                   child: ChartView(aggregates: aggregates),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const _LegendItem(color: Colors.orange, label: '飲酒'),
-                    const SizedBox(width: 16),
-                    const _LegendItem(color: Colors.green, label: '休肝日'),
-                    const SizedBox(width: 16),
-                    _LegendItem(
-                        color: Colors.grey.shade400, label: '記録なし'),
+                  children: const [
+                    _LegendDot(color: AppColors.danger, label: '飲んだ'),
+                    SizedBox(width: 18),
+                    _LegendDot(color: AppColors.primary, label: '飲まず'),
+                    SizedBox(width: 18),
+                    _LegendDot(color: AppColors.surfaceAlt, label: '記録なし'),
                   ],
                 ),
               ],
@@ -321,19 +431,33 @@ class _ChartTab extends StatelessWidget {
   }
 }
 
-class _LegendItem extends StatelessWidget {
+class _LegendDot extends StatelessWidget {
   final Color color;
   final String label;
-  const _LegendItem({required this.color, required this.label});
+  const _LegendDot({required this.color, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 12, height: 12, color: color),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12)),
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            color: AppColors.inkSoft,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ],
     );
   }

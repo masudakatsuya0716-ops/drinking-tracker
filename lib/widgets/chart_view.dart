@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../stats.dart';
+import '../theme.dart';
 
 class ChartView extends StatelessWidget {
   final List<DailyAggregate> aggregates;
@@ -24,11 +25,12 @@ class ChartView extends StatelessWidget {
         alignment: BarChartAlignment.spaceAround,
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (_) => AppColors.ink,
             getTooltipItem: (group, _, rod, _) {
               final i = group.x;
               final a = aggregates[i];
               final label = a.isRestDay
-                  ? '休肝日'
+                  ? '飲まず'
                   : (a.hasRecord ? '${a.totalMl} ml' : '記録なし');
               return BarTooltipItem(
                 '${a.date.month}/${a.date.day}\n$label',
@@ -47,12 +49,12 @@ class ChartView extends StatelessWidget {
                       ? yMax * 0.05
                       : aggregates[i].totalMl.toDouble(),
                   color: aggregates[i].isRestDay
-                      ? Colors.green
+                      ? AppColors.primary
                       : (aggregates[i].hasRecord
-                          ? Colors.orange
-                          : Colors.grey.shade300),
-                  width: 12,
-                  borderRadius: BorderRadius.circular(2),
+                          ? AppColors.danger
+                          : AppColors.surfaceAlt),
+                  width: 14,
+                  borderRadius: BorderRadius.circular(3),
                 ),
               ],
             ),
@@ -68,7 +70,10 @@ class ChartView extends StatelessWidget {
                 if (value == 0 || value > yMax) return const SizedBox();
                 return Text(
                   '${value.toInt()}',
-                  style: const TextStyle(fontSize: 10),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: AppColors.inkSoft,
+                  ),
                 );
               },
             ),
@@ -85,7 +90,10 @@ class ChartView extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     '${d.month}/${d.day}',
-                    style: const TextStyle(fontSize: 9),
+                    style: const TextStyle(
+                      fontSize: 9,
+                      color: AppColors.inkSoft,
+                    ),
                   ),
                 );
               },
@@ -100,6 +108,10 @@ class ChartView extends StatelessWidget {
           show: true,
           drawVerticalLine: false,
           horizontalInterval: yMax / 4,
+          getDrawingHorizontalLine: (_) => const FlLine(
+            color: AppColors.border,
+            strokeWidth: 0.5,
+          ),
         ),
         borderData: FlBorderData(show: false),
       ),

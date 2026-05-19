@@ -4,19 +4,18 @@ import 'package:intl/intl.dart';
 
 import '../drink_record.dart';
 import '../drink_repository.dart';
+import '../theme.dart';
 
 class DrinkForm extends ConsumerStatefulWidget {
   final DrinkRecord? initial;
   final DateTime? defaultDate;
   final VoidCallback? onSubmitted;
-  final bool showDateLabel;
 
   const DrinkForm({
     super.key,
     this.initial,
     this.defaultDate,
     this.onSubmitted,
-    this.showDateLabel = true,
   });
 
   @override
@@ -28,6 +27,7 @@ class _DrinkFormState extends ConsumerState<DrinkForm> {
   late DateTime _selectedDate;
   late DrinkType _type;
   late bool _isRestDay;
+  bool _statusChosen = false;
   late final TextEditingController _amountController;
   late final TextEditingController _memoController;
   final FocusNode _amountFocus = FocusNode();
@@ -39,10 +39,10 @@ class _DrinkFormState extends ConsumerState<DrinkForm> {
   void initState() {
     super.initState();
     final init = widget.initial;
-    _selectedDate =
-        init?.date ?? widget.defaultDate ?? DateTime.now();
+    _selectedDate = init?.date ?? widget.defaultDate ?? DateTime.now();
     _type = init?.type ?? DrinkType.beer;
     _isRestDay = init?.isRestDay ?? false;
+    _statusChosen = init != null;
     _amountController = TextEditingController(
       text: (init != null && !init.isRestDay && init.amountMl > 0)
           ? init.amountMl.toString()
@@ -60,19 +60,14 @@ class _DrinkFormState extends ConsumerState<DrinkForm> {
     super.dispose();
   }
 
-  Future<void> _pickDate() async {
-    FocusScope.of(context).unfocus();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) setState(() => _selectedDate = picked);
-  }
-
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
+    if (!_statusChosen) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('まず「お酒は?」を選んでください')),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
 
     final amountMl =
@@ -115,40 +110,88 @@ class _DrinkFormState extends ConsumerState<DrinkForm> {
   @override
   Widget build(BuildContext context) {
     final dateLabel =
-        DateFormat('yyyy/MM/dd (E)', 'ja_JP').format(_selectedDate);
+        DateFormat('M月d日 (E)', 'ja_JP').format(_selectedDate);
+    final isToday =
+        DateUtils.isSameDay(_selectedDate, DateTime.now());
 
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (widget.showDateLabel)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('日付'),
-              subtitle: Text(dateLabel),
-              trailing: const Icon(Icons.calendar_today),
-              onTap: _pickDate,
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                dateLabel,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 16),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              isToday ? '今日の記録' : '日付の記録',
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.inkSoft,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
               ),
             ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('休肝日'),
-            value: _isRestDay,
-            onChanged: (v) {
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 18),
+            child: Text(
+              dateLabel,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+                letterSpacing: -0.5,
+                height: 1.2,
+              ),
+            ),
+          ),
+          const Text(
+            'お酒は?',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.ink,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _StatusChoice(
+            label: '飲まなかった',
+            sub: '休肝を守れた',
+            color: AppColors.primary,
+            ink: AppColors.primaryInk,
+            selected: _statusChosen && _isRestDay,
+            onTap: () {
               FocusScope.of(context).unfocus();
-              setState(() => _isRestDay = v);
+              setState(() {
+                _isRestDay = true;
+                _statusChosen = true;
+              });
             },
           ),
-          if (!_isRestDay) ...[
+          const SizedBox(height: 10),
+          _StatusChoice(
+            label: '飲んだ',
+            sub: '正直に記録する',
+            color: AppColors.danger,
+            ink: Colors.white,
+            selected: _statusChosen && !_isRestDay,
+            onTap: () {
+              setState(() {
+                _isRestDay = false;
+                _statusChosen = true;
+              });
+            },
+          ),
+          if (_statusChosen && !_isRestDay) ...[
+            const SizedBox(height: 24),
+            const Text(
+              'どのくらい飲みましたか?',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _amountController,
               focusNode: _amountFocus,
@@ -170,7 +213,7 @@ class _DrinkFormState extends ConsumerState<DrinkForm> {
                 return null;
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             DropdownButtonFormField<DrinkType>(
               initialValue: _type,
               decoration: const InputDecoration(labelText: '種類'),
@@ -183,27 +226,141 @@ class _DrinkFormState extends ConsumerState<DrinkForm> {
               },
             ),
           ],
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _memoController,
-            focusNode: _memoFocus,
-            decoration: const InputDecoration(
-              labelText: 'メモ (任意)',
+          if (_statusChosen) ...[
+            const SizedBox(height: 24),
+            const Text(
+              'ひとこと (任意)',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
             ),
-            maxLength: 200,
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) => _submit(),
-          ),
-          const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _memoController,
+              focusNode: _memoFocus,
+              decoration: const InputDecoration(
+                hintText: '気づいたこと、気持ちなど',
+              ),
+              maxLength: 200,
+              maxLines: 3,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _submit(),
+            ),
+          ],
+          const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
-            child: FilledButton.icon(
+            child: FilledButton(
               onPressed: _submit,
-              icon: Icon(_isEdit ? Icons.check : Icons.save),
-              label: Text(_isEdit ? '更新する' : '記録する'),
+              child: Text(
+                _isEdit ? 'この日の記録を更新' : 'この日の記録を保存',
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w700),
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StatusChoice extends StatelessWidget {
+  final String label;
+  final String sub;
+  final Color color;
+  final Color ink;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _StatusChoice({
+    required this.label,
+    required this.sub,
+    required this.color,
+    required this.ink,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = selected ? color : AppColors.surface;
+    final fg = selected ? ink : AppColors.ink;
+    final subFg = selected
+        ? ink.withValues(alpha: 0.9)
+        : AppColors.inkSoft;
+    final borderColor = selected ? color : AppColors.border;
+
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: borderColor, width: 2),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+          constraints: const BoxConstraints(minHeight: 80),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected
+                      ? Colors.white.withValues(alpha: 0.25)
+                      : Colors.transparent,
+                  border: Border.all(
+                    color: selected ? Colors.white : AppColors.border,
+                    width: 2,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: selected
+                    ? Container(
+                        width: 14,
+                        height: 14,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: fg,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      sub,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: subFg,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
